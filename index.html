@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bondr — connect through what you love</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- SCREEN: Landing -->
+<div id="screen-landing" class="screen active">
+  <nav class="nav">
+    <div class="logo">bond<span>r</span></div>
+    <button class="btn-ghost" onclick="showScreen('screen-login')">sign in</button>
+  </nav>
+  <div class="landing-hero">
+    <div class="hero-tag">interest-based connections</div>
+    <h1 class="hero-title">meet people who<br><span class="accent">get</span> you</h1>
+    <p class="hero-sub">match through shared passions — not just photos. chat anonymously first. connect for real.</p>
+    <button class="btn-primary" onclick="showScreen('screen-signup')">get started — it's free</button>
+    <p class="hero-note">already have an account? <span class="link" onclick="showScreen('screen-login')">sign in</span></p>
+  </div>
+  <div class="landing-features">
+    <div class="feat-card">
+      <div class="feat-icon">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="9" stroke="currentColor" stroke-width="1.5"/><path d="M7 11h8M11 7v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </div>
+      <h3>passion matching</h3>
+      <p>AI finds people who share your actual interests — hiking, books, music, anything</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M4 6h14M4 11h9M4 16h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </div>
+      <h3>chat first</h3>
+      <p>talk anonymously for 3 days before photos are revealed. real connection, not just looks</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M11 3C7.5 3 5 6 5 9c0 4.5 6 10 6 10s6-5.5 6-10c0-3-2.5-6-6-6z" stroke="currentColor" stroke-width="1.5"/><circle cx="11" cy="9" r="2" stroke="currentColor" stroke-width="1.5"/></svg>
+      </div>
+      <h3>spaces</h3>
+      <p>join interest groups — Kerala hikers, book clubs, film lovers — and meet your people</p>
+    </div>
+  </div>
+  <div class="landing-stats">
+    <div class="stat"><span class="stat-num">92%</span><span class="stat-label">match on 3+ interests</span></div>
+    <div class="stat-divider"></div>
+    <div class="stat"><span class="stat-num">3 days</span><span class="stat-label">chat before reveal</span></div>
+    <div class="stat-divider"></div>
+    <div class="stat"><span class="stat-num">18+</span><span class="stat-label">safe & verified only</span></div>
+  </div>
+</div>
+
+<!-- SCREEN: Sign Up Step 1 -->
+<div id="screen-signup" class="screen">
+  <div class="form-wrap">
+    <div class="form-back" onclick="showScreen('screen-landing')">← back</div>
+    <div class="form-logo">bond<span>r</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:33%"></div></div>
+    <p class="progress-label">step 1 of 3 — the basics</p>
+    <h2 class="form-title">let's get you started</h2>
+    <div class="form-group">
+      <label>your name</label>
+      <input type="text" placeholder="what do people call you?" id="signup-name">
+    </div>
+    <div class="form-group">
+      <label>email address</label>
+      <input type="email" placeholder="your@email.com" id="signup-email">
+    </div>
+    <div class="form-group">
+      <label>password</label>
+      <input type="password" placeholder="at least 8 characters" id="signup-pass">
+    </div>
+    <div class="form-group">
+      <label>date of birth <span class="form-note">(must be 18+)</span></label>
+      <input type="date" id="signup-dob">
+    </div>
+    <div class="form-group">
+      <label>i am looking for</label>
+      <div class="intent-row">
+        <button class="intent-btn active" onclick="selectIntent(this)">friendship</button>
+        <button class="intent-btn" onclick="selectIntent(this)">dating</button>
+        <button class="intent-btn" onclick="selectIntent(this)">open to both</button>
+      </div>
+    </div>
+    <button class="btn-primary full" onclick="showScreen('screen-interests')">continue →</button>
+    <p class="form-footer">already have an account? <span class="link" onclick="showScreen('screen-login')">sign in</span></p>
+  </div>
+</div>
+
+<!-- SCREEN: Pick Interests -->
+<div id="screen-interests" class="screen">
+  <div class="form-wrap">
+    <div class="form-back" onclick="showScreen('screen-signup')">← back</div>
+    <div class="form-logo">bond<span>r</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:66%"></div></div>
+    <p class="progress-label">step 2 of 3 — your passions</p>
+    <h2 class="form-title">what do you love?</h2>
+    <p class="form-sub">pick at least 3. this is how we find your people.</p>
+    <div class="interest-grid" id="interest-grid">
+      <button class="interest-tag" onclick="toggleInterest(this)">📸 Photography</button>
+      <button class="interest-tag" onclick="toggleInterest(this)">🥾 Hiking</button>
+      <button class="interest-tag" onclick="toggleInterest(this)">🎵 Music</button>
+      <button class="interest-tag" onclick="toggleInterest(this)">📚 Books</button>
+      <button class="interest-tag" onclick="toggleInterest(this)">🎮 Gaming</button>
+      <button class="interest-tag" onclick="toggleInterest(this)">✈️ Travel</button>
+      <button class="interest-tag" onclick="toggleInterest(this)">🎨 Art</button>
+      <button class="interest-tag" onclick="toggleInterest(this)">🍳 Cooking</button>
+      <button class="interest-tag" onclick="toggleInterest(this)">🎬 Movies</button>
+      <button class="interest-tag" onclick="toggleInterest(this)">💪 Fitness</button>
+      <button class="interest-tag" onclick="toggleInterest(this)">🧘 Yoga</button>
+      <button class="interest-tag" onclick="toggleInterest(this)">💻 Tech</button>
+      <button class="interest-tag" onclick="toggleInterest(this)">🎭 Theatre</button>
+      <button class="interest-tag" onclick="toggleInterest(this)">🌿 Nature</button>
+      <button class="interest-tag" onclick="toggleInterest(this)">🏊 Swimming</button>
+      <button class="interest-tag" onclick="toggleInterest(this)">🎸 Guitar</button>
+      <button class="interest-tag" onclick="toggleInterest(this)">🧩 Board games</button>
+      <button class="interest-tag" onclick="toggleInterest(this)">🌙 Spirituality</button>
+      <button class="interest-tag" onclick="toggleInterest(this)">🏃 Running</button>
+      <button class="interest-tag" onclick="toggleInterest(this)">🖊️ Writing</button>
+      <button class="interest-tag" onclick="toggleInterest(this)">🎤 Singing</button>
+      <button class="interest-tag" onclick="toggleInterest(this)">🌍 Languages</button>
+      <button class="interest-tag" onclick="toggleInterest(this)">💡 Startups</button>
+      <button class="interest-tag" onclick="toggleInterest(this)">🎵 Dance</button>
+    </div>
+    <div class="interest-count" id="interest-count">0 selected — pick at least 3</div>
+    <button class="btn-primary full" id="interest-next" onclick="showScreen('screen-profile')" disabled>continue →</button>
+  </div>
+</div>
+
+<!-- SCREEN: Profile Photo & Bio -->
+<div id="screen-profile" class="screen">
+  <div class="form-wrap">
+    <div class="form-back" onclick="showScreen('screen-interests')">← back</div>
+    <div class="form-logo">bond<span>r</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div>
+    <p class="progress-label">step 3 of 3 — tell your story</p>
+    <h2 class="form-title">almost there!</h2>
+    <div class="avatar-upload" onclick="triggerUpload()">
+      <div class="avatar-placeholder" id="avatar-preview">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="12" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M4 28c0-6.6 5.4-12 12-12s12 5.4 12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span>add photo</span>
+      </div>
+      <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="previewPhoto(this)">
+    </div>
+    <div class="form-group">
+      <label>your city</label>
+      <input type="text" placeholder="e.g. Kochi, Thrissur, Ernakulam..." id="profile-city">
+    </div>
+    <div class="form-group">
+      <label>write a short bio <span class="form-note">(max 150 characters)</span></label>
+      <textarea placeholder="what makes you, you? what are you looking for?" maxlength="150" id="profile-bio" rows="3"></textarea>
+      <div class="char-count" id="char-count">0 / 150</div>
+    </div>
+    <button class="btn-primary full" onclick="showScreen('screen-home')">create my profile 🎉</button>
+  </div>
+</div>
+
+<!-- SCREEN: Login -->
+<div id="screen-login" class="screen">
+  <div class="form-wrap">
+    <div class="form-back" onclick="showScreen('screen-landing')">← back</div>
+    <div class="form-logo">bond<span>r</span></div>
+    <h2 class="form-title">welcome back</h2>
+    <div class="form-group">
+      <label>email address</label>
+      <input type="email" placeholder="your@email.com">
+    </div>
+    <div class="form-group">
+      <label>password</label>
+      <input type="password" placeholder="your password">
+    </div>
+    <button class="btn-primary full" onclick="showScreen('screen-home')">sign in →</button>
+    <p class="form-footer">no account? <span class="link" onclick="showScreen('screen-signup')">sign up free</span></p>
+  </div>
+</div>
+
+<!-- SCREEN: Home / Discover -->
+<div id="screen-home" class="screen app-screen">
+  <div class="app-nav">
+    <div class="app-logo">bond<span>r</span></div>
+    <div class="app-nav-right">
+      <button class="nav-icon-btn" onclick="showScreen('screen-spaces')">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M2 10h16M2 5h16M2 15h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <button class="nav-icon-btn" onclick="showScreen('screen-notifications')">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2a6 6 0 016 6v3l1.5 2H2.5L4 11V8a6 6 0 016-6z" stroke="currentColor" stroke-width="1.5"/><path d="M8 16a2 2 0 004 0" stroke="currentColor" stroke-width="1.5"/></svg>
+        <span class="notif-dot"></span>
+      </button>
+    </div>
+  </div>
+
+  <div class="app-content">
+    <div class="section-header">
+      <h2>discover</h2>
+      <div class="filter-chips">
+        <button class="filter-chip active">all</button>
+        <button class="filter-chip">nearby</button>
+        <button class="filter-chip">new</button>
+      </div>
+    </div>
+
+    <div class="match-cards">
+
+      <div class="match-card" onclick="showChat('Ananya', 'AN', '#7F77DD')">
+        <div class="match-card-header">
+          <div class="match-avatar" style="background:#EEEDFE;color:#534AB7">AN</div>
+          <div class="match-info">
+            <div class="match-name">Ananya, 24 <span class="verified-badge">✓</span></div>
+            <div class="match-location">📍 Kochi</div>
+          </div>
+          <div class="match-percent">
+            <span class="match-num">92%</span>
+            <span class="match-label">match</span>
+          </div>
+        </div>
+        <div class="match-tags">
+          <span class="mtag">📸 Photography</span>
+          <span class="mtag">🥾 Hiking</span>
+          <span class="mtag">📚 Books</span>
+        </div>
+        <div class="match-bar-wrap">
+          <div class="match-bar"><div class="match-bar-fill" style="width:92%"></div></div>
+        </div>
+        <div class="match-spark">💡 "What's one photo location in Kerala that everyone should visit?"</div>
+        <div class="match-actions">
+          <button class="action-pass" onclick="event.stopPropagation()">✕ pass</button>
+          <button class="action-connect" onclick="event.stopPropagation();showChat('Ananya','AN','#7F77DD')">connect ♥</button>
+        </div>
+      </div>
+
+      <div class="match-card" onclick="showChat('Rahul', 'RJ', '#1D9E75')">
+        <div class="match-card-header">
+          <div class="match-avatar" style="background:#E1F5EE;color:#0F6E56">RJ</div>
+          <div class="match-info">
+            <div class="match-name">Rahul, 27</div>
+            <div class="match-location">📍 Thrissur</div>
+          </div>
+          <div class="match-percent">
+            <span class="match-num">84%</span>
+            <span class="match-label">match</span>
+          </div>
+        </div>
+        <div class="match-tags">
+          <span class="mtag">🎵 Music</span>
+          <span class="mtag">✈️ Travel</span>
+          <span class="mtag">💡 Startups</span>
+        </div>
+        <div class="match-bar-wrap">
+          <div class="match-bar"><div class="match-bar-fill" style="width:84%;background:#1D9E75"></div></div>
+        </div>
+        <div class="match-spark">💡 "If you could visit one place in India you haven't been, where?"</div>
+        <div class="match-actions">
+          <button class="action-pass" onclick="event.stopPropagation()">✕ pass</button>
+          <button class="action-connect" onclick="event.stopPropagation();showChat('Rahul','RJ','#1D9E75')">connect ♥</button>
+        </div>
+      </div>
+
+      <div class="match-card" onclick="showChat('Meera', 'MK', '#D85A30')">
+        <div class="match-card-header">
+          <div class="match-avatar" style="background:#FAECE7;color:#993C1D">MK</div>
+          <div class="match-info">
+            <div class="match-name">Meera, 22 <span class="verified-badge">✓</span></div>
+            <div class="match-location">📍 Ernakulam</div>
+          </div>
+          <div class="match-percent">
+            <span class="match-num">78%</span>
+            <span class="match-label">match</span>
+          </div>
+        </div>
+        <div class="match-tags">
+          <span class="mtag">🌙 Spirituality</span>
+          <span class="mtag">🧘 Yoga</span>
+          <span class="mtag">🎨 Art</span>
+        </div>
+        <div class="match-bar-wrap">
+          <div class="match-bar"><div class="match-bar-fill" style="width:78%;background:#D85A30"></div></div>
+        </div>
+        <div class="match-spark">💡 "What's a small habit that changed your life?"</div>
+        <div class="match-actions">
+          <button class="action-pass" onclick="event.stopPropagation()">✕ pass</button>
+          <button class="action-connect" onclick="event.stopPropagation();showChat('Meera','MK','#D85A30')">connect ♥</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <button class="bnav-btn active" onclick="showScreen('screen-home')">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M3 9.5L11 3l8 6.5V19a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" stroke="currentColor" stroke-width="1.5"/></svg>
+      <span>discover</span>
+    </button>
+    <button class="bnav-btn" onclick="showScreen('screen-matches')">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M11 19s-7-5-7-10a7 7 0 0114 0c0 5-7 10-7 10z" stroke="currentColor" stroke-width="1.5"/></svg>
+      <span>matches</span>
+    </button>
+    <button class="bnav-btn" onclick="showScreen('screen-spaces')">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M7 11h8M11 7v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span>spaces</span>
+    </button>
+    <button class="bnav-btn" onclick="showScreen('screen-myprofile')">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="8" r="4" stroke="currentColor" stroke-width="1.5"/><path d="M3 20c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span>profile</span>
+    </button>
+  </div>
+</div>
+
+<!-- SCREEN: Matches / Chat List -->
+<div id="screen-matches" class="screen app-screen">
+  <div class="app-nav">
+    <div class="app-logo">bond<span>r</span></div>
+    <div class="app-nav-right"><span class="nav-title">your matches</span></div>
+  </div>
+  <div class="app-content">
+    <div class="anon-notice">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2"/><path d="M8 5v3l2 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      photos reveal after 3 days of chatting
+    </div>
+    <div class="chat-list">
+      <div class="chat-item" onclick="showChat('Ananya','AN','#7F77DD')">
+        <div class="chat-avatar" style="background:#EEEDFE;color:#534AB7">AN</div>
+        <div class="chat-meta">
+          <div class="chat-name">Ananya <span class="reveal-timer">reveals in 2 days</span></div>
+          <div class="chat-preview">hey! I saw you also love street photography...</div>
+        </div>
+        <div class="chat-time">2m ago</div>
+      </div>
+      <div class="chat-item" onclick="showChat('Rahul','RJ','#1D9E75')">
+        <div class="chat-avatar" style="background:#E1F5EE;color:#0F6E56">RJ</div>
+        <div class="chat-meta">
+          <div class="chat-name">Rahul <span class="new-badge">new match!</span></div>
+          <div class="chat-preview">start the conversation with a spark prompt ✨</div>
+        </div>
+        <div class="chat-time">just now</div>
+      </div>
+      <div class="chat-item" onclick="showChat('Meera','MK','#D85A30')">
+        <div class="chat-avatar" style="background:#FAECE7;color:#993C1D">MK</div>
+        <div class="chat-meta">
+          <div class="chat-name">Meera <span class="reveal-timer">reveals in 1 day</span></div>
+          <div class="chat-preview">I love the grain on Kodak Gold too! 📸</div>
+        </div>
+        <div class="chat-time">1h ago</div>
+      </div>
+    </div>
+  </div>
+  <div class="bottom-nav">
+    <button class="bnav-btn" onclick="showScreen('screen-home')">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M3 9.5L11 3l8 6.5V19a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" stroke="currentColor" stroke-width="1.5"/></svg>
+      <span>discover</span>
+    </button>
+    <button class="bnav-btn active" onclick="showScreen('screen-matches')">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M11 19s-7-5-7-10a7 7 0 0114 0c0 5-7 10-7 10z" stroke="currentColor" stroke-width="1.5"/></svg>
+      <span>matches</span>
+    </button>
+    <button class="bnav-btn" onclick="showScreen('screen-spaces')">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M7 11h8M11 7v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span>spaces</span>
+    </button>
+    <button class="bnav-btn" onclick="showScreen('screen-myprofile')">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="8" r="4" stroke="currentColor" stroke-width="1.5"/><path d="M3 20c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span>profile</span>
+    </button>
+  </div>
+</div>
+
+<!-- SCREEN: Chat -->
+<div id="screen-chat" class="screen app-screen">
+  <div class="chat-nav">
+    <button class="nav-back-btn" onclick="showScreen('screen-matches')">←</button>
+    <div class="chat-nav-avatar" id="chat-nav-avatar">AN</div>
+    <div class="chat-nav-info">
+      <div class="chat-nav-name" id="chat-nav-name">Ananya</div>
+      <div class="chat-nav-status">identity hidden · reveals in 2 days</div>
+    </div>
+    <button class="report-btn" onclick="showReport()">⚑</button>
+  </div>
+  <div class="reveal-bar">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/><path d="M7 4v3l1.5 1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+    photo reveals after 3 days — you're on day 1
+    <div class="reveal-progress"><div class="reveal-progress-fill" style="width:33%"></div></div>
+  </div>
+  <div class="chat-messages" id="chat-messages">
+    <div class="msg-date">today</div>
+    <div class="msg received">hey! I saw you also love street photography — do you shoot film or digital? 📸</div>
+    <div class="msg sent">mostly film! I have an old Pentax. you?</div>
+    <div class="msg received">no way, same!! I love the grain on Kodak Gold 🎞️</div>
+    <div class="msg sent">we should do a photo walk in Fort Kochi sometime!</div>
+  </div>
+  <div class="spark-prompt-bar" id="spark-bar">
+    <span class="spark-label">✨ spark prompt</span>
+    <span class="spark-text" id="spark-text">"What's one photo location in Kerala everyone should visit?"</span>
+    <button class="spark-send" onclick="sendSpark()">use it</button>
+  </div>
+  <div class="chat-input-row">
+    <input type="text" class="chat-input" placeholder="type a message..." id="chat-input" onkeydown="if(event.key==='Enter')sendMessage()">
+    <button class="chat-send-btn" onclick="sendMessage()">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M2 9l14-7-7 14V9H2z" fill="currentColor"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- SCREEN: Spaces -->
+<div id="screen-spaces" class="screen app-screen">
+  <div class="app-nav">
+    <div class="app-logo">bond<span>r</span></div>
+    <div class="app-nav-right"><span class="nav-title">spaces</span></div>
+  </div>
+  <div class="app-content">
+    <p class="spaces-sub">join interest groups — meet people, share passions, make real friends</p>
+    <div class="spaces-list">
+      <div class="space-card">
+        <div class="space-icon" style="background:#E1F5EE;color:#0F6E56">🥾</div>
+        <div class="space-info">
+          <div class="space-name">Kerala Hikers</div>
+          <div class="space-meta">342 members · 18 online now</div>
+          <div class="space-tags"><span class="stag">Hiking</span><span class="stag">Nature</span><span class="stag">Photography</span></div>
+        </div>
+        <button class="space-join-btn">join</button>
+      </div>
+      <div class="space-card joined">
+        <div class="space-icon" style="background:#EEEDFE;color:#534AB7">📸</div>
+        <div class="space-info">
+          <div class="space-name">Film Photography India</div>
+          <div class="space-meta">891 members · 34 online now</div>
+          <div class="space-tags"><span class="stag">Photography</span><span class="stag">Film</span><span class="stag">Art</span></div>
+        </div>
+        <button class="space-join-btn joined-btn">joined ✓</button>
+      </div>
+      <div class="space-card">
+        <div class="space-icon" style="background:#FAEEDA;color:#854F0B">📚</div>
+        <div class="space-info">
+          <div class="space-name">Book Club — South India</div>
+          <div class="space-meta">204 members · 7 online now</div>
+          <div class="space-tags"><span class="stag">Books</span><span class="stag">Reading</span></div>
+        </div>
+        <button class="space-join-btn">join</button>
+      </div>
+      <div class="space-card">
+        <div class="space-icon" style="background:#FAECE7;color:#993C1D">🎵</div>
+        <div class="space-info">
+          <div class="space-name">Music Lovers Kerala</div>
+          <div class="space-meta">567 members · 22 online now</div>
+          <div class="space-tags"><span class="stag">Music</span><span class="stag">Concerts</span></div>
+        </div>
+        <button class="space-join-btn">join</button>
+      </div>
+      <div class="space-card">
+        <div class="space-icon" style="background:#E1F5EE;color:#0F6E56">🌙</div>
+        <div class="space-info">
+          <div class="space-name">Mindfulness &amp; Yoga</div>
+          <div class="space-meta">128 members · 9 online now</div>
+          <div class="space-tags"><span class="stag">Yoga</span><span class="stag">Spirituality</span><span class="stag">Wellness</span></div>
+        </div>
+        <button class="space-join-btn">join</button>
+      </div>
+    </div>
+  </div>
+  <div class="bottom-nav">
+    <button class="bnav-btn" onclick="showScreen('screen-home')">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M3 9.5L11 3l8 6.5V19a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" stroke="currentColor" stroke-width="1.5"/></svg>
+      <span>discover</span>
+    </button>
+    <button class="bnav-btn" onclick="showScreen('screen-matches')">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M11 19s-7-5-7-10a7 7 0 0114 0c0 5-7 10-7 10z" stroke="currentColor" stroke-width="1.5"/></svg>
+      <span>matches</span>
+    </button>
+    <button class="bnav-btn active" onclick="showScreen('screen-spaces')">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M7 11h8M11 7v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span>spaces</span>
+    </button>
+    <button class="bnav-btn" onclick="showScreen('screen-myprofile')">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="8" r="4" stroke="currentColor" stroke-width="1.5"/><path d="M3 20c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span>profile</span>
+    </button>
+  </div>
+</div>
+
+<!-- SCREEN: My Profile -->
+<div id="screen-myprofile" class="screen app-screen">
+  <div class="app-nav">
+    <div class="app-logo">bond<span>r</span></div>
+    <div class="app-nav-right">
+      <button class="nav-icon-btn" onclick="showScreen('screen-settings')">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.2 4.2l1.4 1.4M14.4 14.4l1.4 1.4M4.2 15.8l1.4-1.4M14.4 5.6l1.4-1.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="app-content">
+    <div class="profile-header">
+      <div class="profile-avatar-big">YO</div>
+      <div class="profile-name-row">
+        <h2 class="profile-big-name">You, 22</h2>
+        <span class="verified-badge-big">✓ verified</span>
+      </div>
+      <div class="profile-location">📍 Erattupetta, Kerala</div>
+      <p class="profile-bio-text">passionate about photography and hiking. looking to meet real people with real interests.</p>
+      <button class="btn-outline" onclick="showScreen('screen-editprofile')">edit profile</button>
+    </div>
+    <div class="profile-section">
+      <h3 class="profile-section-title">my interests</h3>
+      <div class="profile-tags">
+        <span class="ptag">📸 Photography</span>
+        <span class="ptag">🥾 Hiking</span>
+        <span class="ptag">📚 Books</span>
+        <span class="ptag">🌙 Spirituality</span>
+        <span class="ptag">🎵 Music</span>
+      </div>
+    </div>
+    <div class="profile-stats-row">
+      <div class="pstat"><span class="pstat-num">3</span><span class="pstat-label">matches</span></div>
+      <div class="pstat"><span class="pstat-num">2</span><span class="pstat-label">spaces joined</span></div>
+      <div class="pstat"><span class="pstat-num">14</span><span class="pstat-label">days on bondr</span></div>
+    </div>
+    <div class="profile-section">
+      <h3 class="profile-section-title">looking for</h3>
+      <div class="intent-display">open to both friendship &amp; dating</div>
+    </div>
+    <button class="btn-danger-ghost" onclick="if(confirm('Sign out?'))showScreen('screen-landing')">sign out</button>
+  </div>
+  <div class="bottom-nav">
+    <button class="bnav-btn" onclick="showScreen('screen-home')">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M3 9.5L11 3l8 6.5V19a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" stroke="currentColor" stroke-width="1.5"/></svg>
+      <span>discover</span>
+    </button>
+    <button class="bnav-btn" onclick="showScreen('screen-matches')">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M11 19s-7-5-7-10a7 7 0 0114 0c0 5-7 10-7 10z" stroke="currentColor" stroke-width="1.5"/></svg>
+      <span>matches</span>
+    </button>
+    <button class="bnav-btn" onclick="showScreen('screen-spaces')">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M7 11h8M11 7v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span>spaces</span>
+    </button>
+    <button class="bnav-btn active" onclick="showScreen('screen-myprofile')">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="8" r="4" stroke="currentColor" stroke-width="1.5"/><path d="M3 20c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span>profile</span>
+    </button>
+  </div>
+</div>
+
+<!-- SCREEN: Settings -->
+<div id="screen-settings" class="screen app-screen">
+  <div class="app-nav">
+    <button class="nav-back-btn" onclick="showScreen('screen-myprofile')">←</button>
+    <span class="nav-title">settings</span>
+  </div>
+  <div class="app-content">
+    <div class="settings-group">
+      <div class="settings-label">account</div>
+      <div class="settings-item">change email</div>
+      <div class="settings-item">change password</div>
+      <div class="settings-item">phone verification</div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-label">privacy & safety</div>
+      <div class="settings-item" onclick="showScreen('screen-blocked')">blocked users</div>
+      <div class="settings-item">who can message me</div>
+      <div class="settings-item">hide my profile</div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-label">notifications</div>
+      <div class="settings-item toggle-item">new matches <input type="checkbox" checked class="toggle"></div>
+      <div class="settings-item toggle-item">new messages <input type="checkbox" checked class="toggle"></div>
+      <div class="settings-item toggle-item">space activity <input type="checkbox" class="toggle"></div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-label">support</div>
+      <div class="settings-item">community guidelines</div>
+      <div class="settings-item">privacy policy</div>
+      <div class="settings-item">contact support</div>
+    </div>
+    <button class="btn-danger-ghost" style="margin-top:1rem" onclick="if(confirm('Delete your account? This cannot be undone.'))showScreen('screen-landing')">delete account</button>
+  </div>
+</div>
+
+<!-- Report Modal -->
+<div id="report-modal" class="modal-overlay" style="display:none" onclick="closeReport()">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <h3 class="modal-title">report this person</h3>
+    <p class="modal-sub">select what's happening</p>
+    <div class="report-options">
+      <button class="report-opt" onclick="submitReport(this)">harassment or abuse</button>
+      <button class="report-opt" onclick="submitReport(this)">fake profile or spam</button>
+      <button class="report-opt" onclick="submitReport(this)">inappropriate content</button>
+      <button class="report-opt" onclick="submitReport(this)">I think they're underage</button>
+      <button class="report-opt" onclick="submitReport(this)">other</button>
+    </div>
+    <button class="modal-cancel" onclick="closeReport()">cancel</button>
+  </div>
+</div>
+
+<!-- Report Confirmation -->
+<div id="report-confirm" class="modal-overlay" style="display:none" onclick="this.style.display='none'">
+  <div class="modal-card">
+    <div class="confirm-icon">✓</div>
+    <h3 class="modal-title">report submitted</h3>
+    <p class="modal-sub">thank you. our team will review this within 24 hours. you can also block this person to stop all contact.</p>
+    <button class="btn-primary full" onclick="document.getElementById('report-confirm').style.display='none'">done</button>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
+HTMLEOF
