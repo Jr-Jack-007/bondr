@@ -1,5 +1,5 @@
 import { auth, db, storage, createUserWithEmailAndPassword, deleteUser, onAuthStateChanged, sendPasswordResetEmail, signInWithEmailAndPassword, signOut, updateEmail, updatePassword } from './firebase-config.js';
-import { addDoc, collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, serverTimestamp, setDoc } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js';
+import { addDoc, collection, doc, documentId, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, runTransaction, serverTimestamp, setDoc, startAfter, where } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js';
 import { getDownloadURL, ref, uploadBytes } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-storage.js';
 
 // ===== Zvibe APP LOGIC =====
@@ -56,6 +56,21 @@ function setButtonLoading(btn, isLoading) {
   btn.dataset.loading = 'false';
 }
 
+function formatAuthError(errorCode) {
+  switch (errorCode) {
+    case 'auth/user-not-found':
+      return 'no account found with this email';
+    case 'auth/wrong-password':
+      return 'incorrect password';
+    case 'auth/too-many-requests':
+      return 'too many attempts — please try again in a few minutes';
+    case 'auth/invalid-email':
+      return 'please enter a valid email address';
+    default:
+      return 'something went wrong';
+  }
+}
+
 function setSignupFirebaseError(error) {
   const emailError = document.getElementById('error-email');
   const passError = document.getElementById('error-pass');
@@ -64,9 +79,9 @@ function setSignupFirebaseError(error) {
   emailError.textContent = '';
   passError.textContent = '';
 
-  const message = error?.message || 'something went wrong';
+  const message = formatAuthError(error?.code);
   if (error?.code === 'auth/weak-password') {
-    passError.textContent = message;
+    passError.textContent = error?.message || message;
   } else {
     emailError.textContent = message;
   }
@@ -77,6 +92,14 @@ let selectedChatUserId = '';
 let currentChatRoomId = '';
 let unsubscribeChatMessages = null;
 let currentUserProfileCache = null;
+let pendingSignupCredentials = null;
+let discoverLastVisibleUserDoc = null;
+let discoverHasMoreUsers = true;
+let discoverIsLoading = false;
+let discoverQuerySeenExclusions = [];
+
+const DISCOVER_BATCH_SIZE = 50;
+const DISCOVER_SEEN_USERS_KEY = 'zvibe-seen-user-ids';
 
 const discoverAccentPalette = [
   { background: '#EEEDFE', color: '#534AB7', bar: '#7F77DD' },
@@ -94,6 +117,384 @@ function stopChatListener() {
 
 function buildChatRoomId(currentUserId, otherUserId) {
   return [currentUserId, otherUserId].sort().join('_');
+}
+
+function getTimestampMillis(timestampValue) {
+  if (!timestampValue) return 0;
+
+  if (typeof timestampValue.toMillis === 'function') {
+    return timestampValue.toMillis();
+  }
+
+  if (typeof timestampValue.toDate === 'function') {
+    return timestampValue.toDate().getTime();
+  }
+
+  const parsed = new Date(timestampValue).getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function formatRelativeTime(timestampValue) {
+  const millis = getTimestampMillis(timestampValue);
+  if (!millis) return 'just now';
+
+  const diffSeconds = Math.max(0, Math.floor((Date.now() - millis) / 1000));
+  if (diffSeconds < 60) return 'just now';
+
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays}d ago`;
+}
+
+function renderConnectionsEmptyState(title, message, icon = '💬') {
+  const chatList = document.querySelector('.chat-list');
+  const emptyConnections = document.getElementById('empty-connections');
+  if (!chatList || !emptyConnections) return;
+
+  chatList.innerHTML = '';
+  emptyConnections.style.display = 'block';
+  emptyConnections.innerHTML = `
+    <div style="font-size:36px;line-height:1;margin-bottom:10px;">${icon}</div>
+    <h3 style="font-size:20px;margin-bottom:8px;">${title}</h3>
+    <p style="font-size:14px;color:var(--text-muted);margin-bottom:16px;">${message}</p>
+    <button class="btn-primary" onclick="showScreen('screen-home')">start discovering</button>
+  `;
+  chatList.appendChild(emptyConnections);
+}
+
+function renderConnectionsLoadingState() {
+  renderConnectionsEmptyState(
+    'loading your connections',
+    'we\'re fetching your conversations',
+    '⌛'
+  );
+}
+
+function createConnectionChatItem(connection) {
+  const item = document.createElement('div');
+  item.className = 'chat-item';
+  item.dataset.userId = connection.otherUserId;
+  item.dataset.roomId = connection.roomId;
+
+  const avatar = document.createElement('div');
+  avatar.className = 'chat-avatar';
+  avatar.style.background = connection.accent.background;
+  avatar.style.color = connection.accent.color;
+  avatar.textContent = connection.initials;
+
+  const meta = document.createElement('div');
+  meta.className = 'chat-meta';
+
+  const name = document.createElement('div');
+  name.className = 'chat-name';
+  name.textContent = connection.name;
+
+  const status = document.createElement('span');
+  status.className = connection.revealedAt ? 'new-badge' : 'reveal-timer';
+  status.textContent = connection.revealedAt ? 'photo revealed' : 'identity hidden';
+  name.appendChild(status);
+
+  const preview = document.createElement('div');
+  preview.className = 'chat-preview';
+  preview.textContent = connection.lastMessage || 'start the conversation with a spark prompt ✨';
+
+  meta.appendChild(name);
+  meta.appendChild(preview);
+
+  const time = document.createElement('div');
+  time.className = 'chat-time';
+  time.textContent = connection.lastMessageTime || 'just now';
+
+  item.appendChild(avatar);
+  item.appendChild(meta);
+  item.appendChild(time);
+
+  item.addEventListener('click', () => {
+    showChat(connection.name, connection.initials, connection.accent.bar, connection.otherUserId);
+  });
+
+  return item;
+}
+
+function renderSpacesLoadingState() {
+  const spacesList = document.getElementById('spaces-list');
+  if (!spacesList) return;
+
+  spacesList.innerHTML = `
+    <div class="match-empty-state" id="spaces-empty-state">
+      <div class="match-empty-icon">⌛</div>
+      <h3>loading spaces</h3>
+      <p>we’re finding groups that match your interests</p>
+    </div>
+  `;
+}
+
+function renderSpacesEmptyState(title, message) {
+  const spacesList = document.getElementById('spaces-list');
+  if (!spacesList) return;
+
+  spacesList.innerHTML = `
+    <div class="match-empty-state" id="spaces-empty-state">
+      <div class="match-empty-icon">🌐</div>
+      <h3>${title}</h3>
+      <p>${message}</p>
+    </div>
+  `;
+}
+
+function createSpaceCard(spaceId, spaceData, isJoined, accentIndex) {
+  const card = document.createElement('div');
+  card.className = `space-card${isJoined ? ' joined' : ''}`;
+  card.dataset.spaceId = spaceId;
+
+  const accentPalette = [
+    { background: '#EEEDFE', color: '#534AB7' },
+    { background: '#E1F5EE', color: '#0F6E56' },
+    { background: '#FAEEDA', color: '#854F0B' },
+    { background: '#FAECE7', color: '#993C1D' }
+  ];
+  const accent = accentPalette[accentIndex % accentPalette.length];
+
+  const tags = Array.isArray(spaceData.tags) ? spaceData.tags : [];
+
+  card.innerHTML = `
+    <div class="space-icon" style="background:${accent.background};color:${accent.color}">${spaceData.emoji || '✨'}</div>
+    <div class="space-info">
+      <div class="space-name">${spaceData.name || 'Untitled space'}</div>
+      <div class="space-meta">${spaceData.memberCount || 0} members</div>
+      <div class="space-tags">${tags.map(tag => `<span class="stag">${tag}</span>`).join('')}</div>
+    </div>
+    <button class="space-join-btn${isJoined ? ' joined-btn' : ''}" type="button">${isJoined ? 'joined ✓' : 'join'}</button>
+  `;
+
+  const joinBtn = card.querySelector('.space-join-btn');
+  if (joinBtn) {
+    joinBtn.addEventListener('click', async () => {
+      await joinSpace(spaceId, joinBtn);
+    });
+  }
+
+  return card;
+}
+
+async function loadSpaces() {
+  const currentUser = auth.currentUser;
+  const spacesList = document.getElementById('spaces-list');
+  if (!spacesList) return;
+
+  if (!currentUser) {
+    renderSpacesEmptyState(
+      'sign in to explore spaces',
+      'spaces work after you create an account'
+    );
+    return;
+  }
+
+  renderSpacesLoadingState();
+
+  try {
+    const spacesSnapshot = await getDocs(query(collection(db, 'spaces')));
+
+    if (spacesSnapshot.empty) {
+      renderSpacesEmptyState(
+        'no spaces yet',
+        'new groups will appear here once they are created'
+      );
+      return;
+    }
+
+    const joinedState = await Promise.all(spacesSnapshot.docs.map(async spaceDoc => {
+      const memberDoc = await getDoc(doc(db, 'spaces', spaceDoc.id, 'members', currentUser.uid));
+      return {
+        spaceId: spaceDoc.id,
+        spaceData: spaceDoc.data(),
+        isJoined: memberDoc.exists()
+      };
+    }));
+
+    spacesList.innerHTML = '';
+    joinedState.forEach((space, index) => {
+      spacesList.appendChild(createSpaceCard(space.spaceId, space.spaceData, space.isJoined, index));
+    });
+  } catch (error) {
+    console.error('failed to load spaces', error);
+    renderSpacesEmptyState(
+      'could not load spaces',
+      'check your connection and try again'
+    );
+  }
+}
+
+async function joinSpace(spaceId, buttonEl) {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('you must be signed in to join a space');
+  }
+
+  if (!spaceId) {
+    throw new Error('missing space id');
+  }
+
+  const spaceRef = doc(db, 'spaces', spaceId);
+  const memberRef = doc(db, 'spaces', spaceId, 'members', currentUser.uid);
+
+  await runTransaction(db, async transaction => {
+    const [spaceSnapshot, memberSnapshot] = await Promise.all([
+      transaction.get(spaceRef),
+      transaction.get(memberRef)
+    ]);
+
+    if (!spaceSnapshot.exists()) {
+      throw new Error('space not found');
+    }
+
+    if (memberSnapshot.exists()) {
+      return;
+    }
+
+    transaction.set(memberRef, {
+      userId: currentUser.uid,
+      joinedAt: serverTimestamp()
+    });
+
+    transaction.update(spaceRef, {
+      memberCount: increment(1)
+    });
+  });
+
+  if (buttonEl) {
+    buttonEl.textContent = 'joined ✓';
+    buttonEl.classList.add('joined-btn');
+    const card = buttonEl.closest('.space-card');
+    if (card) card.classList.add('joined');
+  }
+}
+
+async function loadConnectionsList() {
+  const currentUser = auth.currentUser;
+  const chatList = document.querySelector('.chat-list');
+  const emptyConnections = document.getElementById('empty-connections');
+
+  if (!chatList || !emptyConnections) return;
+
+  if (!currentUser) {
+    renderConnectionsEmptyState(
+      'sign in to see connections',
+      'connect with people after creating an account'
+    );
+    return;
+  }
+
+  renderConnectionsLoadingState();
+
+  try {
+    const connectionsQuery = query(
+      collection(db, 'connections'),
+      where('users', 'array-contains', currentUser.uid)
+    );
+    const connectionsSnapshot = await getDocs(connectionsQuery);
+
+    if (connectionsSnapshot.empty) {
+      renderConnectionsEmptyState(
+        'no connections yet',
+        'start discovering people and connect with those who share your interests'
+      );
+      return;
+    }
+
+    const connectionItems = await Promise.all(connectionsSnapshot.docs.map(async (connectionDoc, index) => {
+      const connectionData = connectionDoc.data();
+      const otherUserId = Array.isArray(connectionData.users)
+        ? connectionData.users.find(userId => userId !== currentUser.uid)
+        : '';
+
+      if (!otherUserId) return null;
+
+      const [userSnapshot, lastMessageSnapshot] = await Promise.all([
+        getDoc(doc(db, 'users', otherUserId)),
+        getDocs(query(
+          collection(db, 'chats', connectionDoc.id, 'messages'),
+          orderBy('timestamp', 'desc'),
+          limit(1)
+        ))
+      ]);
+
+      const userData = userSnapshot.exists() ? userSnapshot.data() : {};
+      const latestMessageDoc = lastMessageSnapshot.docs[0];
+      const latestMessageData = latestMessageDoc ? latestMessageDoc.data() : null;
+
+      return {
+        roomId: connectionDoc.id,
+        otherUserId,
+        name: userData.name || 'Anonymous',
+        initials: getProfileInitials(userData.name || 'Anonymous'),
+        accent: discoverAccentPalette[index % discoverAccentPalette.length],
+        lastMessage: latestMessageData?.text || 'start the conversation with a spark prompt ✨',
+        lastMessageTime: formatRelativeTime(latestMessageData?.timestamp || connectionData.createdAt),
+        lastActivityMs: getTimestampMillis(latestMessageData?.timestamp || connectionData.createdAt),
+        revealedAt: connectionData.revealedAt || null
+      };
+    }));
+
+    const visibleConnections = connectionItems
+      .filter(Boolean)
+      .sort((a, b) => {
+        if (b.lastActivityMs !== a.lastActivityMs) return b.lastActivityMs - a.lastActivityMs;
+        return a.name.localeCompare(b.name);
+      });
+
+    if (!visibleConnections.length) {
+      renderConnectionsEmptyState(
+        'no connections yet',
+        'start discovering people and connect with those who share your interests'
+      );
+      return;
+    }
+
+    chatList.innerHTML = '';
+    emptyConnections.style.display = 'none';
+    visibleConnections.forEach(connection => {
+      chatList.appendChild(createConnectionChatItem(connection));
+    });
+  } catch (error) {
+    console.error('failed to load connections list', error);
+    renderConnectionsEmptyState(
+      'could not load connections',
+      'check your connection and try again'
+    );
+  }
+}
+
+async function createConnection(otherUserId) {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('you must be signed in to connect');
+  }
+
+  if (!otherUserId) {
+    throw new Error('missing user to connect with');
+  }
+
+  const users = [currentUser.uid, otherUserId].sort();
+  const roomId = buildChatRoomId(users[0], users[1]);
+  const connectionRef = doc(db, 'connections', roomId);
+  const existingConnection = await getDoc(connectionRef);
+
+  if (!existingConnection.exists()) {
+    await setDoc(connectionRef, {
+      users,
+      createdAt: serverTimestamp(),
+      revealedAt: null,
+      day1: serverTimestamp()
+    });
+  }
+
+  return roomId;
 }
 
 function renderChatMessages(snapshot) {
@@ -295,9 +696,16 @@ function wireMatchCardInteractions(card) {
   }
 
   if (connectBtn) {
-    connectBtn.addEventListener('click', event => {
+    connectBtn.addEventListener('click', async event => {
       event.stopPropagation();
-      showChat(connectBtn.dataset.name, connectBtn.dataset.initials, connectBtn.dataset.color, connectBtn.dataset.userId);
+
+      try {
+        await createConnection(connectBtn.dataset.userId);
+        showChat(connectBtn.dataset.name, connectBtn.dataset.initials, connectBtn.dataset.color, connectBtn.dataset.userId);
+      } catch (error) {
+        console.error('failed to create connection', error);
+        return;
+      }
     });
   }
 
@@ -397,27 +805,125 @@ function renderDiscoverEmptyState(title, message) {
   `;
 }
 
-function renderDiscoverMatches(matches) {
-  const matchCards = document.getElementById('discover-match-cards');
-  if (!matchCards) return;
+function getSeenUserIds() {
+  try {
+    const raw = localStorage.getItem(DISCOVER_SEEN_USERS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+  } catch (error) {
+    console.warn('failed to read seen users from localStorage', error);
+    return [];
+  }
+}
 
-  if (!matches.length) {
-    renderDiscoverEmptyState(
-      'no matches yet',
-      'add more interests or check back later for people who share your vibe'
-    );
+function saveSeenUserIds(ids) {
+  const uniqueIds = Array.from(new Set((ids || []).filter(Boolean)));
+  localStorage.setItem(DISCOVER_SEEN_USERS_KEY, JSON.stringify(uniqueIds));
+}
+
+function markUsersAsSeen(userIds) {
+  if (!Array.isArray(userIds) || userIds.length === 0) return;
+
+  const existing = getSeenUserIds();
+  saveSeenUserIds([...existing, ...userIds]);
+}
+
+function getDiscoverLoadMoreButton() {
+  return document.getElementById('discover-load-more-btn');
+}
+
+function ensureDiscoverLoadMoreButton() {
+  const matchCards = document.getElementById('discover-match-cards');
+  if (!matchCards) return null;
+
+  let wrapper = document.getElementById('discover-load-more-wrap');
+  if (!wrapper) {
+    wrapper = document.createElement('div');
+    wrapper.id = 'discover-load-more-wrap';
+    wrapper.style.display = 'flex';
+    wrapper.style.justifyContent = 'center';
+    wrapper.style.padding = '8px 0 18px';
+
+    const button = document.createElement('button');
+    button.id = 'discover-load-more-btn';
+    button.type = 'button';
+    button.className = 'btn-outline';
+    button.textContent = 'load more';
+    button.addEventListener('click', async () => {
+      await loadDiscoverMatches({ append: true });
+    });
+
+    wrapper.appendChild(button);
+    matchCards.appendChild(wrapper);
+  }
+
+  return wrapper.querySelector('#discover-load-more-btn');
+}
+
+function updateDiscoverLoadMoreState() {
+  const button = ensureDiscoverLoadMoreButton();
+  if (!button) return;
+
+  if (!discoverHasMoreUsers) {
+    button.style.display = 'none';
     return;
   }
 
-  matchCards.innerHTML = '';
-  matches.forEach((match, index) => {
-    matchCards.appendChild(createMatchCard(match, index));
+  button.style.display = 'inline-block';
+  button.disabled = discoverIsLoading;
+  button.textContent = discoverIsLoading ? 'loading...' : 'load more';
+}
+
+function renderDiscoverMatches(matches, options = {}) {
+  const matchCards = document.getElementById('discover-match-cards');
+  if (!matchCards) return;
+
+  const append = Boolean(options.append);
+  const visibleMatches = matches.slice(0, append ? matches.length : 5);
+
+  if (!append) {
+    if (!visibleMatches.length) {
+      renderDiscoverEmptyState(
+        'no matches yet',
+        'add more interests or check back later for people who share your vibe'
+      );
+      return;
+    }
+
+    matchCards.innerHTML = '';
+  }
+
+  if (!visibleMatches.length) {
+    if (!discoverHasMoreUsers && !matchCards.querySelector('.match-card')) {
+      renderDiscoverEmptyState(
+        'no matches yet',
+        'add more interests or check back later for people who share your vibe'
+      );
+    }
+    updateDiscoverLoadMoreState();
+    return;
+  }
+
+  const renderedUserIds = [];
+  const existingCardCount = matchCards.querySelectorAll('.match-card').length;
+
+  visibleMatches.forEach((match, index) => {
+    renderedUserIds.push(match.userId);
+    matchCards.appendChild(createMatchCard(match, existingCardCount + index));
   });
 
+  markUsersAsSeen(renderedUserIds);
+  updateDiscoverLoadMoreState();
   animateMatchBars();
 }
 
-async function loadDiscoverMatches() {
+async function loadDiscoverMatches(options = {}) {
+  const append = Boolean(options.append);
+
+  if (discoverIsLoading) {
+    return;
+  }
+
   const currentUser = auth.currentUser;
   if (!currentUser) {
     renderDiscoverEmptyState(
@@ -438,14 +944,41 @@ async function loadDiscoverMatches() {
     return;
   }
 
-  renderDiscoverLoadingState();
+  if (!append) {
+    discoverLastVisibleUserDoc = null;
+    discoverHasMoreUsers = true;
+    discoverQuerySeenExclusions = getSeenUserIds().filter(userId => userId !== currentUser.uid).slice(0, 10);
+    renderDiscoverLoadingState();
+  }
+
+  discoverIsLoading = true;
+  updateDiscoverLoadMoreState();
 
   try {
-    const snapshot = await getDocs(collection(db, 'users'));
+    const constraints = [];
+
+    if (discoverQuerySeenExclusions.length > 0) {
+      constraints.push(where(documentId(), 'not-in', discoverQuerySeenExclusions));
+    }
+
+    constraints.push(limit(DISCOVER_BATCH_SIZE));
+
+    if (append && discoverLastVisibleUserDoc) {
+      constraints.push(startAfter(discoverLastVisibleUserDoc));
+    }
+
+    const discoverQuery = query(collection(db, 'users'), ...constraints);
+    const snapshot = await getDocs(discoverQuery);
+
+    discoverHasMoreUsers = snapshot.size === DISCOVER_BATCH_SIZE;
+    discoverLastVisibleUserDoc = snapshot.docs[snapshot.docs.length - 1] || discoverLastVisibleUserDoc;
+
     const matches = [];
+    const seenUserIds = new Set(getSeenUserIds());
 
     snapshot.forEach(userDoc => {
       if (userDoc.id === currentUser.uid) return;
+      if (seenUserIds.has(userDoc.id)) return;
 
       const userData = userDoc.data();
       const otherInterests = Array.isArray(userData.interests) ? userData.interests.map(normalizeInterestValue).filter(Boolean) : [];
@@ -472,13 +1005,18 @@ async function loadDiscoverMatches() {
       return a.name.localeCompare(b.name);
     });
 
-    renderDiscoverMatches(matches.slice(0, 5));
+    renderDiscoverMatches(matches, { append });
   } catch (error) {
     console.error('failed to load discover matches', error);
-    renderDiscoverEmptyState(
-      'could not load matches',
-      'check your connection and try again'
-    );
+    if (!append) {
+      renderDiscoverEmptyState(
+        'could not load matches',
+        'check your connection and try again'
+      );
+    }
+  } finally {
+    discoverIsLoading = false;
+    updateDiscoverLoadMoreState();
   }
 }
 
@@ -660,14 +1198,16 @@ async function validateSignup() {
     }
   }
   
-  // If all valid, create the user in Firebase first
+  // If all valid, store signup details in memory and continue onboarding
   if (isValid) {
-    try {
-      await createUserWithEmailAndPassword(auth, email, pass);
-      showScreen('screen-interests');
-    } catch (error) {
-      setSignupFirebaseError(error);
-    }
+    pendingSignupCredentials = {
+      name,
+      email,
+      pass,
+      dob
+    };
+
+    showScreen('screen-interests');
   }
 }
 
@@ -698,7 +1238,11 @@ function startWelcomeFlow() {
   }, 2500);
 }
 
-function showScreen(id) {
+function showScreen(id, options = {}) {
+  const fromBack = Boolean(options.fromBack);
+  const currentActiveScreen = document.querySelector('.screen.active');
+  const currentActiveScreenId = currentActiveScreen ? currentActiveScreen.id : '';
+
   if (id === 'screen-forgot') {
     const forgotForm = document.getElementById('forgot-form');
     const forgotConfirm = document.getElementById('forgot-confirm');
@@ -712,6 +1256,38 @@ function showScreen(id) {
   }
 
   if (id === 'screen-interests') {
+    const shouldResetInterests = !fromBack && (
+      currentActiveScreenId === 'screen-signup' ||
+      currentActiveScreenId === 'screen-landing'
+    );
+
+    if (!shouldResetInterests) {
+      document.querySelectorAll('#screen-interests .interest-tag').forEach(btn => {
+        const tag = btn.textContent.trim();
+        btn.classList.toggle('selected', selectedInterests.includes(tag));
+      });
+
+      const countEl = document.getElementById('interest-count');
+      const nextBtn = document.getElementById('interest-next');
+      const count = selectedInterests.length;
+
+      if (countEl) {
+        if (count === 0) {
+          countEl.textContent = '0 selected — pick at least 3';
+          countEl.style.color = '';
+        } else if (count < 3) {
+          countEl.textContent = `${count} selected — pick ${3 - count} more`;
+          countEl.style.color = '#BA7517';
+        } else {
+          countEl.textContent = `${count} selected ✓ looking good!`;
+          countEl.style.color = '#1D9E75';
+        }
+      }
+
+      if (nextBtn) {
+        nextBtn.disabled = count < 3;
+      }
+    } else {
     selectedInterests = [];
 
     document.querySelectorAll('#screen-interests .interest-tag').forEach(btn => {
@@ -726,6 +1302,7 @@ function showScreen(id) {
     const nextBtn = document.getElementById('interest-next');
     if (nextBtn) {
       nextBtn.disabled = true;
+    }
     }
   }
 
@@ -759,9 +1336,17 @@ function showScreen(id) {
       loadCurrentUserProfile();
     }
 
-      if (id === 'screen-home') {
-        loadDiscoverMatches();
-      }
+    if (id === 'screen-home') {
+      loadDiscoverMatches();
+    }
+
+    if (id === 'screen-matches') {
+      loadConnectionsList();
+    }
+
+    if (id === 'screen-spaces') {
+      loadSpaces();
+    }
 
     if (id === 'screen-editprofile') {
       loadEditProfileForm();
@@ -827,7 +1412,7 @@ function previewPhoto(input) {
 }
 
 // Open chat screen
-function showChat(name, initials, color, userId = '') {
+async function showChat(name, initials, color, userId = '') {
   const otherUserId = userId || name.toLowerCase().replace(/\s+/g, '-');
   stopChatListener();
   currentChatRoomId = '';
@@ -850,7 +1435,25 @@ function showChat(name, initials, color, userId = '') {
   const sparkBar = document.getElementById('spark-bar');
   if (sparkBar) sparkBar.style.display = 'flex';
 
+  const revealBar = document.querySelector('.reveal-bar');
+  if (revealBar) {
+    revealBar.style.display = 'flex';
+  }
+
   showScreen('screen-chat');
+
+  if (currentChatRoomId) {
+    try {
+      const connectionRef = doc(db, 'connections', currentChatRoomId);
+      const connectionSnapshot = await getDoc(connectionRef);
+      await updateRevealBar(connectionSnapshot.exists() ? connectionSnapshot.data() : null);
+    } catch (error) {
+      console.error('failed to load reveal state', error);
+      hideRevealBar();
+    }
+  } else {
+    hideRevealBar();
+  }
 
   if (currentChatRoomId) {
     const messagesQuery = query(
@@ -864,10 +1467,69 @@ function showChat(name, initials, color, userId = '') {
   }
 }
 
-function revealPhoto() {
+function hideRevealBar() {
+  const revealBar = document.querySelector('.reveal-bar');
+  if (revealBar) {
+    revealBar.style.display = 'none';
+  }
+}
+
+async function updateRevealBar(connectionData) {
+  const revealBar = document.querySelector('.reveal-bar');
+  const revealText = document.getElementById('reveal-bar-text');
+  const revealProgressFill = document.getElementById('reveal-progress-fill');
+  const revealButton = document.getElementById('reveal-now-btn');
+
+  if (!revealBar || !revealText || !revealProgressFill || !revealButton) return;
+
+  if (!connectionData || connectionData.revealedAt) {
+    hideRevealBar();
+    return;
+  }
+
+  const createdAtMillis = getTimestampMillis(connectionData.createdAt);
+  if (!createdAtMillis) {
+    hideRevealBar();
+    return;
+  }
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  const elapsedDays = Math.max(1, Math.ceil((Date.now() - createdAtMillis) / dayMs));
+  const currentDay = Math.min(3, elapsedDays);
+  const progressPercent = Math.min(100, (currentDay / 3) * 100);
+
+  if (elapsedDays >= 3) {
+    hideRevealBar();
+    await revealPhoto();
+    return;
+  }
+
+  revealBar.style.display = 'flex';
+  revealText.textContent = `photo reveals after 3 days — you're on day ${currentDay} of 3`;
+  revealProgressFill.style.width = `${progressPercent}%`;
+  revealButton.style.display = 'inline-flex';
+}
+
+async function revealPhoto() {
   const navAvatar = document.getElementById('chat-nav-avatar');
   if (!navAvatar) return;
 
+  if (currentChatRoomId) {
+    try {
+      const connectionRef = doc(db, 'connections', currentChatRoomId);
+      const connectionSnapshot = await getDoc(connectionRef);
+
+      if (connectionSnapshot.exists()) {
+        await setDoc(connectionRef, {
+          revealedAt: serverTimestamp()
+        }, { merge: true });
+      }
+    } catch (error) {
+      console.error('failed to set reveal timestamp', error);
+    }
+  }
+
+  hideRevealBar();
   navAvatar.classList.add('revealing');
 
   setTimeout(() => {
@@ -884,7 +1546,9 @@ function confirmReveal() {
     'reveal early?',
     'Revealing your photo now means they can also see yours immediately. This skips the 3-day anonymous chat period — are you sure?',
     () => {
-      revealPhoto();
+      revealPhoto().catch(error => {
+        console.error('failed to reveal photo', error);
+      });
     }
   );
 }
@@ -980,6 +1644,10 @@ function updateMatchEmptyState() {
 
 function removeMatchCard(card) {
   if (!card) return;
+
+  if (card.dataset.userId) {
+    markUsersAsSeen([card.dataset.userId]);
+  }
 
   card.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
   card.style.opacity = '0';
@@ -1402,7 +2070,6 @@ window.addEventListener('DOMContentLoaded', () => {
   const onboardingInterestTags = document.querySelectorAll('#screen-interests .interest-tag');
   const intentButtons = document.querySelectorAll('#screen-intent .intent-btn');
   const bottomNavButtons = document.querySelectorAll('.bottom-nav .bnav-btn[data-screen]');
-  const spaceJoinButtons = document.querySelectorAll('.space-join-btn');
 
   if (landingSignInBtn) {
     landingSignInBtn.addEventListener('click', () => {
@@ -1451,7 +2118,7 @@ window.addEventListener('DOMContentLoaded', () => {
         showScreen('screen-home');
       } catch (error) {
         if (loginErrorEl) {
-          loginErrorEl.textContent = error?.message || 'unable to sign in';
+          loginErrorEl.textContent = formatAuthError(error?.code);
         }
       } finally {
         setButtonLoading(loginSubmitBtn, false);
@@ -1496,7 +2163,32 @@ window.addEventListener('DOMContentLoaded', () => {
       setButtonLoading(createProfileBtn, true);
 
       try {
+        if (!auth.currentUser) {
+          if (!pendingSignupCredentials?.email || !pendingSignupCredentials?.pass) {
+            showScreen('screen-signup');
+            showProfileSaveError('');
+            const emailError = document.getElementById('error-email');
+            if (emailError) {
+              emailError.textContent = 'please complete signup details first';
+            }
+            return;
+          }
+
+          try {
+            await createUserWithEmailAndPassword(
+              auth,
+              pendingSignupCredentials.email,
+              pendingSignupCredentials.pass
+            );
+          } catch (error) {
+            showScreen('screen-signup');
+            setSignupFirebaseError(error);
+            return;
+          }
+        }
+
         await saveCurrentUserProfile();
+        pendingSignupCredentials = null;
         showScreen('screen-welcome');
       } catch (error) {
         showProfileSaveError(error?.message || 'unable to save your profile');
@@ -1529,17 +2221,6 @@ window.addEventListener('DOMContentLoaded', () => {
       if (targetScreen) {
         showScreen(targetScreen);
       }
-    });
-  });
-
-  spaceJoinButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (btn.classList.contains('joined-btn')) return;
-
-      btn.textContent = 'joined ✓';
-      btn.classList.add('joined-btn');
-      const card = btn.closest('.space-card');
-      if (card) card.classList.add('joined');
     });
   });
 

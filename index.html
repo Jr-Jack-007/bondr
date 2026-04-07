@@ -141,7 +141,7 @@
 <!-- SCREEN: Connection Intent -->
 <div id="screen-intent" class="screen">
   <div class="form-wrap">
-    <div class="form-back" onclick="showScreen('screen-interests')">← back</div>
+    <div class="form-back" onclick="showScreen('screen-interests', { fromBack: true })">← back</div>
     <div class="form-logo">zvi<span>be</span></div>
     <div class="progress-bar"><div class="progress-fill" style="width:75%"></div></div>
     <p class="progress-label">step 3 of 4 — your intent</p>
@@ -160,7 +160,7 @@
 <!-- SCREEN: Profile Photo & Bio -->
 <div id="screen-profile" class="screen">
   <div class="form-wrap">
-    <div class="form-back" onclick="showScreen('screen-interests')">← back</div>
+    <div class="form-back" onclick="showScreen('screen-interests', { fromBack: true })">← back</div>
     <div class="form-logo">zvi<span>be</span></div>
     <div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div>
     <p class="progress-label">step 4 of 4 — tell your story</p>
@@ -312,30 +312,6 @@
       photos reveal after 3 days of chatting
     </div>
     <div class="chat-list">
-      <div class="chat-item" onclick="showChat('Ananya','AN','#7F77DD','ananya')">
-        <div class="chat-avatar" style="background:#EEEDFE;color:#534AB7">AN</div>
-        <div class="chat-meta">
-          <div class="chat-name">Ananya <span class="reveal-timer">reveals in 2 days</span></div>
-          <div class="chat-preview">hey! I saw you also love street photography...</div>
-        </div>
-        <div class="chat-time">2m ago</div>
-      </div>
-      <div class="chat-item" onclick="showChat('Rahul','RJ','#1D9E75','rahul')">
-        <div class="chat-avatar" style="background:#E1F5EE;color:#0F6E56">RJ</div>
-        <div class="chat-meta">
-          <div class="chat-name">Rahul <span class="new-badge">new connection!</span></div>
-          <div class="chat-preview">start the conversation with a spark prompt ✨</div>
-        </div>
-        <div class="chat-time">just now</div>
-      </div>
-      <div class="chat-item" onclick="showChat('Meera','MK','#D85A30','meera')">
-        <div class="chat-avatar" style="background:#FAECE7;color:#993C1D">MK</div>
-        <div class="chat-meta">
-          <div class="chat-name">Meera <span class="reveal-timer">reveals in 1 day</span></div>
-          <div class="chat-preview">I love the grain on Kodak Gold too! 📸</div>
-        </div>
-        <div class="chat-time">1h ago</div>
-      </div>
       <div id="empty-connections" style="display:none;text-align:center;padding:28px 16px;">
         <div style="font-size:36px;line-height:1;margin-bottom:10px;">💬</div>
         <h3 style="font-size:20px;margin-bottom:8px;">no connections yet</h3>
@@ -377,9 +353,9 @@
   </div>
   <div class="reveal-bar">
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/><path d="M7 4v3l1.5 1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-    photo reveals after 3 days — you're on day 1
-    <div class="reveal-progress"><div class="reveal-progress-fill" style="width:33%"></div></div>
-    <button class="btn-ghost" style="padding:4px 10px;font-size:11px;" onclick="confirmReveal()">reveal now</button>
+    <span id="reveal-bar-text">photo reveals after 3 days — you're on day 1</span>
+    <div class="reveal-progress"><div class="reveal-progress-fill" id="reveal-progress-fill" style="width:33%"></div></div>
+    <button class="btn-ghost" id="reveal-now-btn" style="padding:4px 10px;font-size:11px;" onclick="confirmReveal()">reveal now</button>
   </div>
   <div class="chat-messages" id="chat-messages">
     <div class="msg-date">today</div>
@@ -409,51 +385,11 @@
   </div>
   <div class="app-content">
     <p class="spaces-sub">join interest groups — meet people, share passions, make real friends</p>
-    <div class="spaces-list">
-      <div class="space-card">
-        <div class="space-icon" style="background:#E1F5EE;color:#0F6E56">🥾</div>
-        <div class="space-info">
-          <div class="space-name">Kerala Hikers</div>
-          <div class="space-meta">342 members · 18 online now</div>
-          <div class="space-tags"><span class="stag">Hiking</span><span class="stag">Nature</span><span class="stag">Photography</span></div>
-        </div>
-        <button class="space-join-btn">join</button>
-      </div>
-      <div class="space-card joined">
-        <div class="space-icon" style="background:#EEEDFE;color:#534AB7">📸</div>
-        <div class="space-info">
-          <div class="space-name">Film Photography India</div>
-          <div class="space-meta">891 members · 34 online now</div>
-          <div class="space-tags"><span class="stag">Photography</span><span class="stag">Film</span><span class="stag">Art</span></div>
-        </div>
-        <button class="space-join-btn joined-btn">joined ✓</button>
-      </div>
-      <div class="space-card">
-        <div class="space-icon" style="background:#FAEEDA;color:#854F0B">📚</div>
-        <div class="space-info">
-          <div class="space-name">Book Club — South India</div>
-          <div class="space-meta">204 members · 7 online now</div>
-          <div class="space-tags"><span class="stag">Books</span><span class="stag">Reading</span></div>
-        </div>
-        <button class="space-join-btn">join</button>
-      </div>
-      <div class="space-card">
-        <div class="space-icon" style="background:#FAECE7;color:#993C1D">🎵</div>
-        <div class="space-info">
-          <div class="space-name">Music Lovers Kerala</div>
-          <div class="space-meta">567 members · 22 online now</div>
-          <div class="space-tags"><span class="stag">Music</span><span class="stag">Concerts</span></div>
-        </div>
-        <button class="space-join-btn">join</button>
-      </div>
-      <div class="space-card">
-        <div class="space-icon" style="background:#E1F5EE;color:#0F6E56">🌙</div>
-        <div class="space-info">
-          <div class="space-name">Mindfulness &amp; Yoga</div>
-          <div class="space-meta">128 members · 9 online now</div>
-          <div class="space-tags"><span class="stag">Yoga</span><span class="stag">Spirituality</span><span class="stag">Wellness</span></div>
-        </div>
-        <button class="space-join-btn">join</button>
+    <div class="spaces-list" id="spaces-list">
+      <div class="match-empty-state" id="spaces-empty-state">
+        <div class="match-empty-icon">⌛</div>
+        <h3>loading spaces</h3>
+        <p>we’re finding groups that match your interests</p>
       </div>
     </div>
   </div>
