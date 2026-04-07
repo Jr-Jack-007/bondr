@@ -570,13 +570,18 @@ async function saveCurrentUserProfile() {
   const userRef = doc(db, 'users', currentUser.uid);
   const existingSnapshot = await getDoc(userRef);
 
-  let photoURL = existingSnapshot.exists() ? (existingSnapshot.data()?.photoURL || '') : '';
+  let photoURL = '';
   if (photoFile) {
-    const avatarRef = ref(storage, `avatars/${currentUser.uid}.jpg`);
-    await uploadBytes(avatarRef, photoFile, {
-      contentType: photoFile.type || 'image/jpeg'
-    });
-    photoURL = await getDownloadURL(avatarRef);
+    try {
+      const avatarRef = ref(storage, `avatars/${currentUser.uid}.jpg`);
+      await uploadBytes(avatarRef, photoFile, {
+        contentType: photoFile.type || 'image/jpeg'
+      });
+      photoURL = await getDownloadURL(avatarRef);
+    } catch (error) {
+      photoURL = '';
+      console.warn('photo upload failed, saving profile without photo url', error);
+    }
   }
 
   const profilePayload = {
